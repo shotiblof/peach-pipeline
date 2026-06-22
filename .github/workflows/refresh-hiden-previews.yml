@@ -1,0 +1,32 @@
+name: Refresh hiden previews
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: refresh-hiden-previews
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r worker/requirements.txt
+
+      - name: Refresh preview clips from hiden API
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          REFRESH_LIMIT: "200"
+          HIDEN_FETCH_PROXY: https://peach-cron.jojetoce199.workers.dev/fetch
+          PARSER_FETCH_SECRET: ${{ secrets.PEACH_CRON_SECRET }}
+        run: python scripts/refresh_hiden_previews.py
