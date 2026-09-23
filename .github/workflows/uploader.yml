@@ -1,0 +1,55 @@
+name: Uploader
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: peach-pipeline-db
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r worker/requirements.txt
+
+      - name: Apply DB migrations
+        env:
+          SHOTIBLOF_GITHUB_TOKEN: ${{ secrets.SHOTIBLOF_GITHUB_TOKEN }}
+          PIPELINE_DB_GITHUB_REPO: shotiblof/peach-pipeline-db
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        working-directory: worker
+        run: python apply_migrations.py
+
+      - name: Recover and reset catalog
+        env:
+          SHOTIBLOF_GITHUB_TOKEN: ${{ secrets.SHOTIBLOF_GITHUB_TOKEN }}
+          PIPELINE_DB_GITHUB_REPO: shotiblof/peach-pipeline-db
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        working-directory: worker
+        run: python cleanup_catalog.py
+
+      - name: Run upload worker
+        env:
+          SHOTIBLOF_GITHUB_TOKEN: ${{ secrets.SHOTIBLOF_GITHUB_TOKEN }}
+          PIPELINE_DB_GITHUB_REPO: shotiblof/peach-pipeline-db
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          PYTHONUNBUFFERED: "1"
+          PIPELINE_PROFILE: turbo
+          UPLOADER_MAX_PER_RUN: "2"
+          NAMEVIDS_DAILY_CAP: "200"
+          UPLOADER_NAMEVIDS_ONLY: "1"
+          UPLOADER_GAP_SEC: "30"
+        working-directory: worker
+        run: python run_uploader.py
